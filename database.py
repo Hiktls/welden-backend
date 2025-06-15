@@ -1,8 +1,9 @@
-import sqlite3
-import utils
-from fastapi import Depends
+from utils import *
+from fastapi import Depends,HTTPException
 from sqlmodel import Field,Session,SQLModel,create_engine,select
 from typing import Annotated
+import time
+import redis
 
 
 
@@ -32,24 +33,40 @@ class OrderBook(SQLModel,table=True):
     limit:int = Field(ge=0)
 
 
+
 class Database:
     def __init__(self,dbPath):
-
+        self.redis = redis.Redis(host="localhost",port=6379,decode_responses=True)
         sql_url = f"sqlite:///{dbPath}"
         self.engine = create_engine(sql_url,connect_args={"check_same_thread":False})
         with Session(self.engine) as session:
             self.session = session
         getSession = lambda : self.session
         self.SessionDep = Annotated[Session,Depends(getSession)]
-        # self.orderBook = sqlite3.connect("orders.db")
-        # self.orderCur = self.orderBook.cursor()
-        # self.users = sqlite3.connect("users.db")
-        # self.usersCur = self.users.cursor()
+
+    def addNonce(self,nonce,address) -> Nonce:
+        print(self.getNonce(address) == {})
+        if self.getNonce(address) is not None:
+            raise HTTPException(409,"Nonce for address already exists.")
+        ts = int(time.time())
+        nonce = NonceBase(nonce=nonce,timestamp=ts) 
+        self.redis.hset(name=address,mapping=nonce.model_dump())
+        self.redis.expire(address,NONCE_EXPIRES*3600)
+        return Nonce(address=address,nonce=nonce,timestamp=ts)
+    
+    def removeNonce(self,address):
+        self.redis.delete(address)
+
+    def getNonce(self,address) -> Nonce:
+        n = self.redis.hgetall(name=address)
+        if n is {}:
+            return None
+        return Nonce(address=address,nonce=n["nonce"],timestamp=n["timestamp"])
+    
 
     def createDB(self):
         SQLModel.metadata.create_all(self.engine)
-        # self.usersCur.execute(USERS_TABLE_DEFINITION)
-        # self.users.commit()
+
 
     def getUser(self,address):
         return self.session.get(User,address)
