@@ -1,4 +1,4 @@
-from fastapi import HTTPException,Depends
+from fastapi import HTTPException,Depends,APIRouter,FastAPI
 from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -7,14 +7,25 @@ from typing import Annotated
 import time
 import jwt
 import yaml
+from . import database
+from web3 import Web3 as w3, EthereumTesterProvider
+from contextlib import asynccontextmanager
 
+router = APIRouter()
 
 secrets = yaml.safe_load(open("secrets.yaml","r"))
 
 SECRET_KEY =secrets["SECRET_KEY"]
+
 ALGO = secrets["ALGO"]
+
 NONCE_EXPIRES = secrets["NONCE_EXPIRE_MIN"]
+
 TOKEN_EXPIRES = secrets["ACCESS_TOKEN_EXPIRE_MIN"]
+
+
+w3 = w3(EthereumTesterProvider())
+
 class NonceBase(BaseModel):
     nonce:str = Field()
     timestamp:int= Field(ge=0)
@@ -32,6 +43,19 @@ class Token(BaseModel):
     token_type:str
 
 BearerSec = HTTPBearer()
+
+USER_ADD_RETURN = lambda msg,extra={} : {"status":"Success","message":msg,**extra}
+
+db = None
+
+@asynccontextmanager
+async def lifespan(app:FastAPI):
+    global db
+    db = database.Database("manage.db")
+    db.createDB()
+    yield
+
+
 
 def validate_jwt(token:Annotated[HTTPAuthorizationCredentials,Depends(BearerSec)]):
     try:
