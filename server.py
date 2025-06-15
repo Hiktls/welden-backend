@@ -2,19 +2,28 @@ from fastapi import FastAPI,Depends,Query,Path,HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
-from typing import Annotated
+from typing import Annotated,List
 from web3 import Web3, EthereumTesterProvider
 import database
 from utils import *
 
 
+User = database.User
 
 app = FastAPI()
 oauth_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-db = database.Database()
+db = None
 
 USER_ADD_RETURN = lambda msg,extra={} : {"status":"Success","message":msg,**extra}
+
+
+@app.on_event("startup")
+def on_startup():
+    global db
+    db = database.Database("manage.db")
+    db.createDB()
+
 
 
 
@@ -31,7 +40,12 @@ async def getUser(address:Annotated[str,Path(min_length=42,max_length=42)]) -> U
     user = db.getUser(address)
     if user is None:
         raise HTTPException(404,"User does not exist.")
-    return User(address=user[0],restriction=user[1],totalContracts=user[2])    
+    return User(address=user.address,restriction=user.restriction,totalContracts=user.totalContracts)    
+
+@app.get("/users")
+async def getUsers(limit:Annotated[int,Query(le=100,ge=0)] = 50) -> List[User]:
+    users = db.getAllUsers(limit)
+    return users
 
 @app.post("/token")
 async def token():
