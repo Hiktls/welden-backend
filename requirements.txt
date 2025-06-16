@@ -1,2 +1,3 @@
 fastapi[standard]
 web3
+pyjwt
