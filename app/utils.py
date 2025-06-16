@@ -1,4 +1,4 @@
-from fastapi import HTTPException,Depends,APIRouter,FastAPI
+from fastapi import HTTPException,Depends,APIRouter,FastAPI,Request,Query
 from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -8,7 +8,7 @@ import time
 import jwt
 import yaml
 from . import database
-from web3 import Web3 as w3, EthereumTesterProvider
+from web3 import Web3, EthereumTesterProvider
 from contextlib import asynccontextmanager
 
 router = APIRouter()
@@ -24,7 +24,6 @@ NONCE_EXPIRES = secrets["NONCE_EXPIRE_MIN"]
 TOKEN_EXPIRES = secrets["ACCESS_TOKEN_EXPIRE_MIN"]
 
 
-w3 = w3(EthereumTesterProvider())
 
 class NonceBase(BaseModel):
     nonce:str = Field()
@@ -46,14 +45,16 @@ BearerSec = HTTPBearer()
 
 USER_ADD_RETURN = lambda msg,extra={} : {"status":"Success","message":msg,**extra}
 
-db = None
+
+AdressQuery = Annotated[str,Query(max_length=42,min_length=42)]
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-    global db
-    db = database.Database("manage.db")
-    db.createDB()
+    app.state.w3 = Web3(EthereumTesterProvider())
+    app.state.db = database.Database("manage.db")
+    app.state.db.createDB()
     yield
+
 
 
 

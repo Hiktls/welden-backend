@@ -52,14 +52,15 @@ class Database:
         nonce = NonceBase(nonce=nonce,timestamp=ts) 
         self.redis.hset(name=address,mapping=nonce.model_dump())
         self.redis.expire(address,NONCE_EXPIRES*3600)
-        return Nonce(address=address,nonce=nonce,timestamp=ts)
+        return Nonce(address=address,nonce=nonce.nonce,timestamp=ts)
     
     def removeNonce(self,address):
         self.redis.delete(address)
+        return "OK"
 
     def getNonce(self,address) -> Nonce:
         n = self.redis.hgetall(name=address)
-        if n is {}:
+        if len(n) == 0:
             return None
         return Nonce(address=address,nonce=n["nonce"],timestamp=n["timestamp"])
     

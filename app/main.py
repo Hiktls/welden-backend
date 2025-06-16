@@ -16,7 +16,6 @@ app.include_router(auth.router,tags=["auth"],prefix="/api/v1/auth")
 app.include_router(users.router,tags=["user"],prefix="/api/v1/user")
 
 
-
 @app.get("/")
 async def main_page():
     return RedirectResponse("/docs")
