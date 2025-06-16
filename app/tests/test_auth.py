@@ -12,6 +12,13 @@ client = TestClient(FastAPP)
 
 ACCOUNT = w3.eth.account.create(str(time.time()))
 
+def test_create_secrets():
+    with open("secrets.yaml","w") as f:
+        f.write("""SECRET_KEY: "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
+ALGO: "HS256"
+ACCESS_TOKEN_EXPIRE_MIN: 30
+NONCE_EXPIRE_MIN: 5""")
+
 # /api/v1/auth/challenge TESTS
 def test_challenge_good():
     with TestClient(FastAPP) as client:
