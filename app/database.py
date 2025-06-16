@@ -69,7 +69,7 @@ class Database:
         SQLModel.metadata.create_all(self.engine)
 
 
-    def getUser(self,address):
+    def getUser(self,address) -> User | None:
         return self.session.get(User,address)
     def getAllUsers(self,limit):
         return self.session.exec(select(User).limit(limit)).all()
