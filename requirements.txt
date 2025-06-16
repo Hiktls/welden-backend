@@ -3,3 +3,4 @@ web3
 pyjwt
 sqlmodel
 redis
+eth_tester
