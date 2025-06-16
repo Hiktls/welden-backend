@@ -34,6 +34,8 @@ jobs:
         echo "ALGO: \"HS256\"" >> secrets.yaml
         echo "ACCESS_TOKEN_EXPIRE_MIN: 30" >> secrets.yaml
         echo "NONCE_EXPIRE_MIN: 5" >> secrets.yaml
+        echo "RESTRICTED_PATHS: ["/api/v1/user/users"]" >> secrets.yaml
+        echo "ADMINS: []" >> secrets.yaml
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
