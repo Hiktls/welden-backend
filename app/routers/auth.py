@@ -49,9 +49,9 @@ async def change_role(role:RoleDep,userJWT:JWTProps,changed_role: Annotated[int,
     elif role > 0 and userJWT.role < 1: # Ensure the request source has permissions for the action
         create_jwt({"sub":userJWT.address,"role":changed_role})
     elif role < 1:
-        raise HTTPException(401, "You are not authorized for this.")
+        raise HTTPException(403, "You are not authorized for this.")
     elif role > 0 and userJWT.role > 0:
-        raise HTTPException(401, "You are not authorized enough to change roles of admins and headmasters.")
+        raise HTTPException(403, "You are not authorized enough to change roles of admins and headmasters.")
 
 
 @router.get("/remove")

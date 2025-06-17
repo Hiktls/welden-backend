@@ -1,21 +1,23 @@
 from fastapi import FastAPI,Depends,Query,Path,HTTPException,Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from fastapi.encoders import jsonable_encoder
-from fastapi.security import HTTPBearer
 from typing import Annotated,List
 from web3 import Web3 as w3,EthereumTesterProvider
 from eth_account.messages import encode_defunct
-from .database import User
 from .utils import *
 from .dependencies import *
-from .routers import auth,users
+from .routers import auth,users,market
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth.router,tags=["auth"],prefix="/api/v1/auth")
 app.include_router(users.router,tags=["user"],prefix="/api/v1/user")
+app.include_router(market.router,tags=["market"],prefix="/api/v1/market")
 
+app.mount("/.well-known",StaticFiles(directory=".well-known"),name="well-known")
 
+# Pre-check for restricted API addresses against banned users.
 @app.middleware("http")
 async def check_ban(request:Request,call_next):
     path = request.url.components.path

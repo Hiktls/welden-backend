@@ -3,13 +3,12 @@ from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel,Field
-from typing import Annotated
+from typing import Annotated,Tuple
 import time
 import jwt
 import yaml
 import uuid
 from typing import List
-from . import database
 from web3 import Web3, EthereumTesterProvider
 from contextlib import asynccontextmanager
 
@@ -27,7 +26,25 @@ TOKEN_EXPIRES = secrets["ACCESS_TOKEN_EXPIRE_MIN"]
 
 RESTRICTED_PATHS:List[str] = secrets["RESTRICTED_PATHS"]
 
-AddressField =Field(title="Wallet address of the user.",min_length=42,max_length=42)
+SYSTEM_ADDRESS:str = secrets["SYSTEM_ADDRESS"]
+
+AddressField = Field(title="Wallet address of the user.",min_length=42,max_length=42)
+
+
+
+class Market(BaseModel):
+    id:int = Field(ge=0,title="ID of the market")
+    market_name:str = Field(title="Name of the market in full string",max_length=128,min_length=0)
+    description: str = Field(title="Description of the market and its resolving condition.",max_length=3000)
+    volume:int = Field(title="Current volume of the market",default=0)
+    weights:int = Field(title="Probablity weights of the market options.",ge=0)
+    ask:int = Field(title="Ask price of a single contract in cents.",ge=0)
+    bid:int = Field(title="Current bid price of a single contract in cents.",ge=0)
+    market_owner:str = AddressField
+    isResolved:bool = Field(title="Whetever the market is resolved or not.",default=False)
+    isOpen:bool = Field(title="Whetever the market is open or not. This can not be changed until the market is resolved.")
+
+
 class NonceBase(BaseModel):
     nonce:str = Field()
     timestamp:int= Field(ge=0)
@@ -60,6 +77,7 @@ TokenDep = Annotated[HTTPAuthorizationCredentials,Depends(BearerSec)]
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
+    from . import database
     app.state.w3 = Web3(EthereumTesterProvider())
     app.state.db = database.Database("manage.db")
     app.state.db.createDB()
@@ -103,6 +121,13 @@ def create_jwt(data:dict):
     to_encode.update({"exp":expires,"jti":uuid.uuid4().hex()})
     encoded_jwt = jwt.encode(to_encode,SECRET_KEY,ALGO)
     return encoded_jwt
+
+def calculate_weights(yes:int,no:int) -> Tuple[List[int],str]:
+    denom = yes**2 + no**2
+    yes_weight = (yes**2)/denom
+    no_weight = (no**2)/denom
+    return ([yes_weight,no_weight],f"{yes_weight},{no_weight}")
+
 
 def ReturnJson(content,status) -> JSONResponse:
     return JSONResponse(jsonable_encoder(content),status)
