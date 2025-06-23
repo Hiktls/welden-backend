@@ -7,7 +7,7 @@ from .utils import *
 
 print(AddressField)
 
-class OrderBook(SQLModel,table=True):
+class Order(SQLModel,table=True):
     order_id:int = Field(primary_key=True,ge=0)
     market_id:int = Field(ge=0)
     contracts:int = Field(gt=0)
@@ -93,40 +93,40 @@ class Database:
     
     def add_order(self,contracts:int,price:int,wallet:str,market_id:int,outcome:int,side:str):
         ts = int(time.time())
-        o = OrderBook(market_id=market_id, contracts=contracts,price=price,outcome=outcome,side=side,filled=0,wallet=wallet,ts=ts,status="open")
+        o = Order(market_id=market_id, contracts=contracts,price=price,outcome=outcome,side=side,filled=0,wallet=wallet,ts=ts,status="open")
         self.session.add(o)
         self.session.commit()
         self.session.refresh(o)
         return o
 
-    def get_order(self,order_id:int | None=None, market_id:int | None=None,price: int | None=None,side:str | None=None,outcome:str | None = None) -> OrderBook | None | List[OrderBook]:
+    def get_order(self,order_id:int | None=None, market_id:int | None=None,price: int | None=None,side:str | None=None,outcome:str | None = None) -> Order | None | List[Order]:
         if order_id is not None:
-            return self.session.get(OrderBook,order_id)
-        query = select(OrderBook).where(
-                (OrderBook.market_id == market_id) if market_id is not None else True,
-                (OrderBook.price <= price) if price is not None else True,
-                (OrderBook.side == side) if side is not None else True,
-                (OrderBook.outcome == outcome) if outcome is not None else True,
-                (OrderBook.status == "open") if OrderBook.status is not None else True
-            ).order_by(OrderBook.ts,OrderBook.price,OrderBook.contracts)
+            return self.session.get(Order,order_id)
+        query = select(Order).where(
+                (Order.market_id == market_id) if market_id is not None else True,
+                (Order.price <= price) if price is not None else True,
+                (Order.side == side) if side is not None else True,
+                (Order.outcome == outcome) if outcome is not None else True,
+                (Order.status == "open") if Order.status is not None else True
+            ).order_by(Order.ts,Order.price,Order.contracts)
 
         if price is not None and side == "buy":
-            query = select(OrderBook).where(
-                (OrderBook.market_id == market_id) if market_id is not None else True,
-                (OrderBook.price >= price) if price is not None else True,
-                (OrderBook.side == side) if side is not None else True,
-                (OrderBook.outcome == outcome) if outcome is not None else True,
-                (OrderBook.status == "open") if OrderBook.status is not None else True
+            query = select(Order).where(
+                (Order.market_id == market_id) if market_id is not None else True,
+                (Order.price >= price) if price is not None else True,
+                (Order.side == side) if side is not None else True,
+                (Order.outcome == outcome) if outcome is not None else True,
+                (Order.status == "open") if Order.status is not None else True
 
-            ).order_by(OrderBook.ts,OrderBook.price,OrderBook.contracts)
+            ).order_by(Order.ts,Order.price,Order.contracts)
         elif price is not None and side == "sell":
-            query = select(OrderBook).where(
-                (OrderBook.market_id == market_id) if market_id is not None else True,
-                (OrderBook.price <= price) if price is not None else True,
-                (OrderBook.side == side) if side is not None else True,
-                (OrderBook.outcome == outcome) if outcome is not None else True,
-                (OrderBook.status == "open") if OrderBook.status is not None else True
-            ).order_by(OrderBook.ts,OrderBook.price,OrderBook.contracts)
+            query = select(Order).where(
+                (Order.market_id == market_id) if market_id is not None else True,
+                (Order.price <= price) if price is not None else True,
+                (Order.side == side) if side is not None else True,
+                (Order.outcome == outcome) if outcome is not None else True,
+                (Order.status == "open") if Order.status is not None else True
+            ).order_by(Order.ts,Order.price,Order.contracts)
 
         orders = self.session.exec(query).all()
 

@@ -1,12 +1,11 @@
 from fastapi import APIRouter,Path,Body
 from typing import Annotated
 from ..utils import *
-from ..dependencies import *
 
 
 
 router = APIRouter()
-from ..database import OrderBook
+from ..database import Order
 
 @router.post("/add")
 async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market to which the order belongs.",ge=0)],
@@ -14,7 +13,7 @@ async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market t
                    price:Annotated[int,Body(title="Price of a single contract in cents.",ge=0)],
                    outcome:Annotated[int,Body(title="Outcome of the market to which the order belongs. 0 for first option, 1 for second option.",ge=0,le=1)],
                    side:Annotated[str,Body(title="Side of the order. Either 'buy' or 'sell'.")],
-                   db:DBDep,wallet:Annotated[int,Depends(validate_jwt)]) -> OrderBook:
+                   db:DBDep,wallet:Annotated[int,Depends(validate_jwt)]) -> Order:
     if wallet is None:
         raise HTTPException(401,"You are not authorized to place an order. Please login first.")
     # Check if market exists and is open
@@ -36,12 +35,24 @@ async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market t
 
     if price <= 0:
         raise HTTPException(400,"Invalid price. Must be greater than 0.")
-    
+
+    # Check if the order matches any standing orders in the book
+    matches = try_match_order(Order(market_id=market_id,side=side,outcome=outcome,price=price,amount=contracts,address=wallet),db)
+
+    if matches == []:
+        pass
+    else:
+        # MAKE TRANSACTION HERE
+        # The first order will trade with the orders it matched with. If the order is a buy order, the contracts will be transferred to the order holder and 
+        # the money will be transferred to the maker
+        # If the order is a sell order, the contracts will be transferred to the maker and the money will be transferred to the order holder.
+        None
+
     return db.add_order(contracts=contracts,price=price,wallet=wallet,market_id=market_id,outcome=outcome,side=side)
 
 
 @router.get("/orders") # REMOVE FROM PROD
-def get_orders(market_id:Annotated[int,Query(ge=0,)],db:DBDep) -> List[OrderBook]:
+def get_orders(market_id:Annotated[int,Query(ge=0,)],db:DBDep) -> List[Order]:
     """
     Get all orders for a market.
     """

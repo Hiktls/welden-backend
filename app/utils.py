@@ -57,16 +57,6 @@ class Market(BaseModel):
     isOpen:bool = Field(title="Whetever the market is open or not. This can not be changed until the market is resolved.")
 
 
-class Order(BaseModel):
-    id:int = Field(ge=0,title="ID of the order")
-    market_id:int = Field(ge=0,title="ID of the market this order is for.")
-    address:str = AddressField
-    side:SideEnum = Field(title="Whetever this order is a buy order or not.")
-    outcome:OutcomeEnum = Field(title="Outcome of the market to which the order belongs. 0 for first option, 1 for second option.")
-    price:int = Field(title="Price of the order in cents.",ge=0)
-    amount:int = Field(title="Amount of contracts in this order.",ge=1)
-    timestamp:int = Field(title="Timestamp of the order creation.",ge=0)
-
 class NonceBase(BaseModel):
     nonce:str = Field()
     timestamp:int= Field(ge=0)
@@ -105,7 +95,7 @@ def get_w3(request:Request):
     return request.app.state.w3
 
 W3Dep = Annotated[Web3,Depends(get_w3)]
-from .database import Database
+from .database import Database,Order
 DBDep = Annotated[Database,Depends(get_db)]
 
 @asynccontextmanager

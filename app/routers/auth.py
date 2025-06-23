@@ -2,7 +2,6 @@ from ..utils import *
 import uuid
 from eth_account.messages import encode_defunct
 from fastapi import APIRouter,Query,Request,Body
-from ..dependencies import *
 
 router = APIRouter()
 

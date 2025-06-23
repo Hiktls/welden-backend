@@ -4,3 +4,4 @@ pyjwt
 sqlmodel
 redis
 eth_tester
+pydantic-settings
