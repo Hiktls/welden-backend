@@ -15,7 +15,7 @@ async def add_market(market_name:Annotated[str,Body(title="Name of the market",m
                   market_owner:Annotated[str,Body(title="Address of the market owner. This could be a user, or the system itself. In general, whoever submitted the market gets it.")]=SYSTEM_ADDRESS) -> Market:
     if permission <= 0:
         raise HTTPException(403, "You are not permitted to add a market.")
-    return db.addMarket(market_name,market_desc,market_owner)
+    return db.add_market(market_name,market_desc,market_owner)
 
 
 @router.post("/resolve/{market_id}")
@@ -31,7 +31,7 @@ async def resolve_market(market_id:Annotated[int,Path(title="Access ID of the ma
     if m.isResolved is True:
         raise HTTPException(400,"You can not resolve an already resolved market.")
     
-    db.resolveMarket(market_id)
+    db.resolve_market(market_id)
     #TODO: ADD FUNCTION TO CREATE A 4 HOUR TIMER. THE TIMER WILL THEN DISTRIBUTE EACH WINNER WITH A DOLLAR.    
 
 @router.get("/{market_id}")

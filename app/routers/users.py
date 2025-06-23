@@ -2,7 +2,6 @@ from fastapi import APIRouter,Path,Query
 from ..database import User
 from ..utils import *
 from typing import Annotated,List
-from ..dependencies import *
 
 router = APIRouter()
 

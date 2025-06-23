@@ -1,22 +1,22 @@
-from .utils import *
 from fastapi import Depends,HTTPException,Body
 from sqlmodel import Field,Session,SQLModel,create_engine,select
 from typing import Annotated
 import time
 import redis
-
+from .utils import *
 
 print(AddressField)
-class User(SQLModel, table=True):
-    address:str = Field(primary_key=True,title="Wallet address of the user.",min_length=42,max_length=42)
-    restriction:int = Field(title="Restriction digit of the user.",ge=-1,le=2)
-    totalContracts:int = Field(default=0,title="Total amount of contracts the user holds, in every market the user is participating.",ge=0,)
 
 class OrderBook(SQLModel,table=True):
     order_id:int = Field(primary_key=True,ge=0)
-    contracts:int = Field(ge=0)
-    cost:int = Field(ge=0)
-    limit:int = Field(ge=0)
+    market_id:int = Field(ge=0)
+    contracts:int = Field(gt=0)
+    price:int = Field(ge=0)
+    outcome:OutcomeEnum = Field()
+    side:SideEnum = Field()
+    wallet:str = AddressField
+    ts:int = Field(ge=0)
+    status:str = Field()
 
 class Market(SQLModel,table=True):
     id:int = Field(primary_key=True,ge=0,title="ID of the market")
@@ -30,6 +30,10 @@ class Market(SQLModel,table=True):
     isResolved:bool = Field(title="Whetever the market is resolved or not.",default=False)
     isOpen:bool = Field(title="Whetever the market is open or not. This can not be changed until the market is resolved.",default=False)
 
+class User(SQLModel, table=True):
+    address:str = Field(primary_key=True,title="Wallet address of the user.",min_length=42,max_length=42)
+    restriction:int = Field(title="Restriction digit of the user.",ge=-1,le=2)
+    totalContracts:int = Field(default=0,title="Total amount of contracts the user holds, in every market the user is participating.",ge=0)
 
 class Database:
     def __init__(self,dbPath):
@@ -63,11 +67,11 @@ class Database:
     
 
     def createDB(self):
-        SQLModel.metadata.drop_all(self.engine)
+        #SQLModel.metadata.drop_all(self.engine) # REMOVE AT PROD
         SQLModel.metadata.create_all(self.engine)
 
 
-    def addMarket(self,market_name:str,
+    def add_market(self,market_name:str,
                   market_desc:str,
                   market_owner:str) -> Market:
 
@@ -77,7 +81,7 @@ class Database:
         self.session.refresh(m)
         return 
     
-    def resolveMarket(self,market_id):
+    def resolve_market(self,market_id):
         m = self.get_market(market_id)
         m.isResolved = True
         self.session.add(m)
@@ -86,7 +90,47 @@ class Database:
 
     def get_market(self,id:int) -> Market | None:
         return self.session.get(Market,id)
+    
+    def add_order(self,contracts:int,price:int,wallet:str,market_id:int,outcome:int,side:str):
+        ts = int(time.time())
+        o = OrderBook(market_id=market_id, contracts=contracts,price=price,outcome=outcome,side=side,filled=0,wallet=wallet,ts=ts,status="open")
+        self.session.add(o)
+        self.session.commit()
+        self.session.refresh(o)
+        return o
 
+    def get_order(self,order_id:int | None=None, market_id:int | None=None,price: int | None=None,side:str | None=None,outcome:str | None = None) -> OrderBook | None | List[OrderBook]:
+        if order_id is not None:
+            return self.session.get(OrderBook,order_id)
+        query = select(OrderBook).where(
+                (OrderBook.market_id == market_id) if market_id is not None else True,
+                (OrderBook.price <= price) if price is not None else True,
+                (OrderBook.side == side) if side is not None else True,
+                (OrderBook.outcome == outcome) if outcome is not None else True,
+                (OrderBook.status == "open") if OrderBook.status is not None else True
+            ).order_by(OrderBook.ts,OrderBook.price,OrderBook.contracts)
+
+        if price is not None and side == "buy":
+            query = select(OrderBook).where(
+                (OrderBook.market_id == market_id) if market_id is not None else True,
+                (OrderBook.price >= price) if price is not None else True,
+                (OrderBook.side == side) if side is not None else True,
+                (OrderBook.outcome == outcome) if outcome is not None else True,
+                (OrderBook.status == "open") if OrderBook.status is not None else True
+
+            ).order_by(OrderBook.ts,OrderBook.price,OrderBook.contracts)
+        elif price is not None and side == "sell":
+            query = select(OrderBook).where(
+                (OrderBook.market_id == market_id) if market_id is not None else True,
+                (OrderBook.price <= price) if price is not None else True,
+                (OrderBook.side == side) if side is not None else True,
+                (OrderBook.outcome == outcome) if outcome is not None else True,
+                (OrderBook.status == "open") if OrderBook.status is not None else True
+            ).order_by(OrderBook.ts,OrderBook.price,OrderBook.contracts)
+
+        orders = self.session.exec(query).all()
+
+        return orders if orders else None
     def getUser(self,address) -> User | None:
         return self.session.get(User,address)
     def getAllUsers(self,limit):
