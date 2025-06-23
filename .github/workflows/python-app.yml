@@ -5,7 +5,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: python:3.14
+      image: python:3.14.0b3-bookworm
 
     services:
       redis:
