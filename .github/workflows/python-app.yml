@@ -1,6 +1,16 @@
 name: Welden test
 on: push
 
+
+env: 
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  ALGO: HS256
+  ACCESS_TOKEN_EXPIRE_MIN: 30
+  NONCE_EXPIRE_MIN: 5
+  SYSTEM_ADDRESS: "0xEd69082Da1b2Fb24eE007E635BC9D3E131EF8479"
+  RESTRICTED_PATHS: "[\"/api/v1/user/users\"]"
+  ADMINS: "[]"
+
 permissions:
   contents: read
 jobs:
