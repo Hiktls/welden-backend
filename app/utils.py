@@ -141,7 +141,7 @@ def validate_jwt(token:TokenDep) -> str:
 
 def create_jwt(data:dict):
     to_encode = data.copy()
-    expires = int(time.time() + ( settings.TOKEN_EXPIRES* 3600))
+    expires = int(time.time() + ( settings.ACCESS_TOKEN_EXPIRE_MIN* 3600))
     to_encode.update({"exp":expires,"jti":uuid.uuid4().hex})
     encoded_jwt = jwt.encode(to_encode,settings.SECRET_KEY,settings.ALGO)
     return encoded_jwt
