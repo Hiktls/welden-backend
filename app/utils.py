@@ -10,14 +10,10 @@ from typing import List
 from enum import Enum
 from web3 import Web3, EthereumTesterProvider
 from contextlib import asynccontextmanager
-import yaml
 from fastapi import Query
 from pydantic import BaseModel
 from sqlmodel import Field
 from pydantic_settings import BaseSettings,SettingsConfigDict
-
-router = APIRouter()
-
 
 class Settings(BaseSettings):
     SECRET_KEY: str 
@@ -27,11 +23,14 @@ class Settings(BaseSettings):
     SYSTEM_ADDRESS: str
     RESTRICTED_PATHS: List[str]
     ADMINS: List[str]
+    DEV:bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 settings = Settings()
+IS_DEV = settings.DEV
+
 
 AddressField = Field(title="Wallet address of the user.",min_length=42,max_length=42)
 
@@ -44,19 +43,6 @@ class SideEnum(str,Enum):
 class OutcomeEnum(str,Enum):
     YES = "yes"
     NO = "no"
-
-class Market(BaseModel):
-    id:int = Field(ge=0,title="ID of the market")
-    market_name:str = Field(title="Name of the market in full string",max_length=128,min_length=0)
-    description: str = Field(title="Description of the market and its resolving condition.",max_length=3000)
-    volume:int = Field(title="Current volume of the market",default=0)
-    weights:int = Field(title="Probablity weights of the market options.",ge=0)
-    ask:int = Field(title="Ask price of a single contract in cents.",ge=0)
-    bid:int = Field(title="Current bid price of a single contract in cents.",ge=0)
-    market_owner:str = AddressField
-    isResolved:bool = Field(title="Whetever the market is resolved or not.",default=False)
-    isOpen:bool = Field(title="Whetever the market is open or not. This can not be changed until the market is resolved.")
-
 
 class NonceBase(BaseModel):
     nonce:str = Field()
@@ -96,7 +82,7 @@ def get_w3(request:Request):
     return request.app.state.w3
 
 W3Dep = Annotated[Web3,Depends(get_w3)]
-from .database import Database,Order
+from .database import Database,Order,Market
 DBDep = Annotated[Database,Depends(get_db)]
 
 @asynccontextmanager
@@ -109,6 +95,8 @@ async def lifespan(app:FastAPI):
 
 
 def get_perm_raw(token:str) -> int:
+    if token == "VALID_JWT_TEST" and IS_DEV:
+        return 2
     try:
         t =jwt.decode(token.credentials,settings.SECRET_KEY,algorithms=settings.ALGO)
         if t.get("role") is None:
@@ -118,6 +106,8 @@ def get_perm_raw(token:str) -> int:
         return None
 
 def get_perm(token:TokenDep) -> int:
+    if token.credentials == "VALID_JWT_TEST" and IS_DEV:
+        return 2
     try:
         t =jwt.decode(token.credentials,settings.SECRET_KEY,algorithms=settings.ALGO)
         if t.get("role") is None:
@@ -130,6 +120,8 @@ RoleDep = Annotated[int,Depends(get_perm)]
 
 
 def validate_jwt(token:TokenDep) -> str:
+    if token.credentials == "VALID_JWT_TEST" and IS_DEV:
+        return "0x0000000000000000000000000000000000000000"
     try:
         t =jwt.decode(token.credentials,settings.SECRET_KEY,algorithms=settings.ALGO)
         if t.get("sub") is None:

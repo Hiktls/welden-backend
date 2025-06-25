@@ -16,6 +16,19 @@ async def add_market(market_name:Annotated[str,Body(title="Name of the market",m
         raise HTTPException(403, "You are not permitted to add a market.")
     return db.add_market(market_name,market_desc,market_owner)
 
+@router.patch("/open/{market_id}")
+async def open_market(market_id:Annotated[int,Path(title="ID of the market")],db:DBDep,perm:RoleDep) -> Market:
+    if perm <= 1:
+        raise HTTPException(403,"You are not authorized for this.")
+    m = db.get_market(market_id)
+    if m is None:
+        raise HTTPException(404,"Market does not exist.")
+    if m.isOpen is True:
+        raise HTTPException(423,"Market is already open.")
+    if m.isResolved is True:
+        raise HTTPException(400,"You can not open a resolved market.")
+    return db.open_market(market_id)
+
 
 @router.post("/resolve/{market_id}")
 async def resolve_market(market_id:Annotated[int,Path(title="Access ID of the market.")],db:DBDep,perm:Annotated[int,Depends(get_perm)]):

@@ -70,6 +70,14 @@ class Database:
         #SQLModel.metadata.drop_all(self.engine) # REMOVE AT PROD
         SQLModel.metadata.create_all(self.engine)
 
+    def open_market(self,market_id:int) -> Market:
+        m = self.get_market(market_id)
+        m.isOpen = True
+        self.session.add(m)
+        self.session.commit()
+        self.session.refresh(m)
+        return m
+
 
     def add_market(self,market_name:str,
                   market_desc:str,
@@ -79,7 +87,7 @@ class Database:
         self.session.add(m)
         self.session.commit()
         self.session.refresh(m)
-        return 
+        return m
     
     def resolve_market(self,market_id):
         m = self.get_market(market_id)
@@ -129,6 +137,9 @@ class Database:
             ).order_by(Order.ts,Order.price,Order.contracts)
 
         orders = self.session.exec(query).all()
+
+        if len(orders) == 1:
+            return orders[0]
 
         return orders if orders else None
     def getUser(self,address) -> User | None:

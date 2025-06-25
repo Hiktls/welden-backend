@@ -10,9 +10,9 @@ from ..database import Order
 @router.post("/add")
 async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market to which the order belongs.",ge=0)],
                    contracts:Annotated[int,Body(title="Amount of contracts to buy or sell.",ge=1)],
-                   price:Annotated[int,Body(title="Price of a single contract in cents.",ge=0)],
-                   outcome:Annotated[int,Body(title="Outcome of the market to which the order belongs. 0 for first option, 1 for second option.",ge=0,le=1)],
-                   side:Annotated[str,Body(title="Side of the order. Either 'buy' or 'sell'.")],
+                   price:Annotated[int,Body(title="Price of a single contract in cents.",ge=1,le=99)],
+                   outcome:Annotated[OutcomeEnum,Body(title="Outcome of the market to which the order belongs. 0 for first option, 1 for second option.")],
+                   side:Annotated[SideEnum,Body(title="Side of the order. Either 'buy' or 'sell'.")],
                    db:DBDep,wallet:Annotated[int,Depends(validate_jwt)]) -> Order:
     if wallet is None:
         raise HTTPException(401,"You are not authorized to place an order. Please login first.")
@@ -20,15 +20,13 @@ async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market t
     m = db.get_market(market_id)
     if m is None:
         raise HTTPException(404,"Market does not exist.")
+    elif m is None:
+        pass
     if m.isOpen is False:
         raise HTTPException(423,"You can not place an order in a closed market.")
     if m.isResolved is True:
         raise HTTPException(400,"You can not place an order in a resolved market.")
 
-
-    #TODO: Call function to match the order with existing orders in the book.
-    if side not in ["buy","sell"]:
-        raise HTTPException(400,"Invalid order side. Must be either 'buy' or 'sell'.")
     if contracts <= 0:
         raise HTTPException(400,"Invalid amount of contracts. Must be greater than 0.")
     
@@ -51,15 +49,24 @@ async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market t
     return db.add_order(contracts=contracts,price=price,wallet=wallet,market_id=market_id,outcome=outcome,side=side)
 
 
-@router.get("/orders") # REMOVE FROM PROD
+@router.get("/orders",) # REMOVE FROM PROD
 def get_orders(market_id:Annotated[int,Query(ge=0,)],db:DBDep) -> List[Order]:
     """
     Get all orders for a market.
     """
+    if not IS_DEV:
+        raise HTTPException(403,"This endpoint is not available in production.")
     orders = db.get_order(market_id=market_id)
     if orders is None:
         raise HTTPException(404,"No orders found for this market.")
     return orders
+
+@router.get("/{market_id}/{order_id}")
+async def get_order(market_id:Annotated[int,Path(ge=0)],order_id:Annotated[int,Path(ge=0)],db:DBDep) -> Order:
+    order = db.get_order(order_id=order_id,market_id=market_id)
+    if order is None:
+        raise HTTPException(404,"Order not found.")
+    return order
 
 @router.get("/populate")
 def populate_orders(db:DBDep):

@@ -10,6 +10,7 @@ env:
   SYSTEM_ADDRESS: "0xEd69082Da1b2Fb24eE007E635BC9D3E131EF8479"
   RESTRICTED_PATHS: "[\"/api/v1/user/users\"]"
   ADMINS: "[]"
+  DEV: "True"
 
 permissions:
   contents: read
