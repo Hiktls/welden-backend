@@ -11,7 +11,7 @@ async def add_market(market_name:Annotated[str,Body(title="Name of the market",m
                   market_desc:Annotated[str,Body(title="Description and resolve condition of the market.",max_length=3000)] ,
                   permission:Annotated[int,Depends(get_perm)],
                   db:DBDep,
-                  market_owner:Annotated[str,Body(title="Address of the market owner. This could be a user, or the system itself. In general, whoever submitted the market gets it.")]=SYSTEM_ADDRESS) -> Market:
+                  market_owner:Annotated[str,Body(title="Address of the market owner. This could be a user, or the system itself. In general, whoever submitted the market gets it.")]=settings.SYSTEM_ADDRESS) -> Market:
     if permission <= 0:
         raise HTTPException(403, "You are not permitted to add a market.")
     return db.add_market(market_name,market_desc,market_owner)

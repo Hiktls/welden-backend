@@ -23,7 +23,7 @@ app.mount("/.well-known",StaticFiles(directory=".well-known"),name="well-known")
 async def check_ban(request:Request,call_next):
     path = request.url.components.path
     print(path)
-    if path in RESTRICTED_PATHS:
+    if path in settings.RESTRICTED_PATHS:
         authHeader = request.headers.get("Authorization")
         if authHeader == None or not authHeader.startswith("Bearer"):
             return JSONResponse(status_code=401,content={"detail":"Authorization required in the form of a Bearer header."})

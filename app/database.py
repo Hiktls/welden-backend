@@ -52,7 +52,7 @@ class Database:
         ts = int(time.time())
         nonce = NonceBase(nonce=nonce,timestamp=ts) 
         self.redis.hset(name=address,mapping=nonce.model_dump())
-        self.redis.expire(address,NONCE_EXPIRES*3600)
+        self.redis.expire(address,settings.NONCE_EXPIRE_MIN*3600)
         return Nonce(address=address,nonce=nonce.nonce,timestamp=ts)
     
     def removeNonce(self,address):

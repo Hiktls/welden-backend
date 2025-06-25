@@ -14,23 +14,24 @@ import yaml
 from fastapi import Query
 from pydantic import BaseModel
 from sqlmodel import Field
+from pydantic_settings import BaseSettings,SettingsConfigDict
 
 router = APIRouter()
 
 
-secrets = yaml.safe_load(open("secrets.yaml","r"))
+class Settings(BaseSettings):
+    SECRET_KEY: str 
+    ALGO: str
+    ACCESS_TOKEN_EXPIRE_MIN: int 
+    NONCE_EXPIRE_MIN: int
+    SYSTEM_ADDRESS: str
+    RESTRICTED_PATHS: List[str]
+    ADMINS: List[str]
 
-SECRET_KEY =secrets["SECRET_KEY"]
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-ALGO = secrets["ALGO"]
 
-NONCE_EXPIRES = secrets["NONCE_EXPIRE_MIN"]
-
-TOKEN_EXPIRES = secrets["ACCESS_TOKEN_EXPIRE_MIN"]
-
-RESTRICTED_PATHS:List[str] = secrets["RESTRICTED_PATHS"]
-
-SYSTEM_ADDRESS:str = secrets["SYSTEM_ADDRESS"]
+settings = Settings()
 
 AddressField = Field(title="Wallet address of the user.",min_length=42,max_length=42)
 
@@ -109,7 +110,7 @@ async def lifespan(app:FastAPI):
 
 def get_perm_raw(token:str) -> int:
     try:
-        t =jwt.decode(token.credentials,SECRET_KEY,algorithms=ALGO)
+        t =jwt.decode(token.credentials,settings.SECRET_KEY,algorithms=settings.ALGO)
         if t.get("role") is None:
             raise None
         return t.get("role")
@@ -118,7 +119,7 @@ def get_perm_raw(token:str) -> int:
 
 def get_perm(token:TokenDep) -> int:
     try:
-        t =jwt.decode(token.credentials,SECRET_KEY,algorithms=ALGO)
+        t =jwt.decode(token.credentials,settings.SECRET_KEY,algorithms=settings.ALGO)
         if t.get("role") is None:
             raise HTTPException(401,"Invalid JWT token.")
         return t.get("role")
@@ -130,7 +131,7 @@ RoleDep = Annotated[int,Depends(get_perm)]
 
 def validate_jwt(token:TokenDep) -> str:
     try:
-        t =jwt.decode(token.credentials,SECRET_KEY,algorithms=ALGO)
+        t =jwt.decode(token.credentials,settings.SECRET_KEY,algorithms=settings.ALGO)
         if t.get("sub") is None:
             raise HTTPException(401,"Invalid JWT token.")
         return t.get("sub")
@@ -140,9 +141,9 @@ def validate_jwt(token:TokenDep) -> str:
 
 def create_jwt(data:dict):
     to_encode = data.copy()
-    expires = int(time.time() + ( TOKEN_EXPIRES* 3600))
+    expires = int(time.time() + ( settings.TOKEN_EXPIRES* 3600))
     to_encode.update({"exp":expires,"jti":uuid.uuid4().hex})
-    encoded_jwt = jwt.encode(to_encode,SECRET_KEY,ALGO)
+    encoded_jwt = jwt.encode(to_encode,settings.SECRET_KEY,settings.ALGO)
     return encoded_jwt
 
 def calculate_weights(yes:int,no:int) -> Tuple[List[int],str]:
