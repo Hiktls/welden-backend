@@ -13,7 +13,7 @@ async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market t
                    price:Annotated[int,Body(title="Price of a single contract in cents.",ge=1,le=99)],
                    outcome:Annotated[OutcomeEnum,Body(title="Outcome of the market to which the order belongs. 0 for first option, 1 for second option.")],
                    side:Annotated[SideEnum,Body(title="Side of the order. Either 'buy' or 'sell'.")],
-                   db:DBDep,wallet:Annotated[int,Depends(validate_jwt)]) -> Order:
+                   db:DBDep,wallet:Annotated[int,Depends(validate_jwt)],w3:W3Dep) -> Order:
     if wallet is None:
         raise HTTPException(401,"You are not authorized to place an order. Please login first.")
     # Check if market exists and is open
@@ -40,12 +40,18 @@ async def add_limit_order(market_id:Annotated[int,Body(title="ID of the market t
     if matches == []:
         pass
     else:
-        # MAKE TRANSACTION HERE
-        # The first order will trade with the orders it matched with. If the order is a buy order, the contracts will be transferred to the order holder and 
-        # the money will be transferred to the maker
-        # If the order is a sell order, the contracts will be transferred to the maker and the money will be transferred to the order holder.
-        None
-
+        if side == "buy":
+            # The order is a buy order, so we need to transfer the contracts to the order holder and the money to the maker
+            for match in matches:
+                db.transfer_share(market_id=market_id,from_address=match.address,to_address=wallet,outcome=outcome,amount=match.amount)
+                # WEB3 CALL TO CONTRACT FOR TRANSFER OF MONEY
+        if side == "sell":
+            # The order is a sell order, so we need to transfer the contracts to the maker and the money to the order holder
+            for match in matches:
+                db.transfer_share(market_id=market_id,from_address=wallet,to_address=match.address,outcome=outcome,amount=match.amount)
+                # WEB3 CALL TO CONTRACT FOR TRANSFER OF MONEY
+                
+    # If no matches were found, we can add the order to the book
     return db.add_order(contracts=contracts,price=price,wallet=wallet,market_id=market_id,outcome=outcome,side=side)
 
 

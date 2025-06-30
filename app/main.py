@@ -14,8 +14,6 @@ app.include_router(auth.router,tags=["auth"],prefix="/api/v1/auth")
 app.include_router(users.router,tags=["user"],prefix="/api/v1/user")
 app.include_router(market.router,tags=["market"],prefix="/api/v1/market")
 app.include_router(order.router,tags=["order"],prefix="/api/v1/order")
-
-
 app.mount("/.well-known",StaticFiles(directory=".well-known"),name="well-known")
 
 # Pre-check for restricted API addresses against banned users.

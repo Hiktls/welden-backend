@@ -1,7 +1,7 @@
 fastapi[standard]
 web3
+eth_tester
 pyjwt
 sqlmodel
 redis
-eth_tester
 pydantic-settings

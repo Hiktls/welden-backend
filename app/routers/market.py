@@ -43,6 +43,13 @@ async def resolve_market(market_id:Annotated[int,Path(title="Access ID of the ma
     if m.isResolved is True:
         raise HTTPException(400,"You can not resolve an already resolved market.")
     
+    # Close all open orders in the market
+
+    open_orders = db.get_order(market_id=market_id,status="open")
+
+    for order in open_orders:
+        db.close_order(order.order_id)
+
     db.resolve_market(market_id)
     #TODO: ADD FUNCTION TO CREATE A 4 HOUR TIMER. THE TIMER WILL THEN DISTRIBUTE EACH WINNER WITH A DOLLAR.    
 

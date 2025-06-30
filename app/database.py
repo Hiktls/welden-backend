@@ -9,7 +9,7 @@ print(AddressField)
 
 class Order(SQLModel,table=True):
     order_id:int = Field(primary_key=True,ge=0)
-    market_id:int = Field(ge=0)
+    market_id:int = Field(ge=0,foreign_key="market.id",title="ID of the market this order belongs to.")
     contracts:int = Field(gt=0)
     price:int = Field(ge=0)
     outcome:OutcomeEnum = Field()
@@ -17,6 +17,13 @@ class Order(SQLModel,table=True):
     wallet:str = AddressField
     ts:int = Field(ge=0)
     status:str = Field()
+
+class Share(SQLModel,table=True):
+    share_id:int = Field(primary_key=True,ge=0)
+    market_id:int = Field(ge=0,foreign_key="market.id",title="ID of the market this share belongs to.")
+    user_id:str = Field(foreign_key="user.address",title="Address of the user this share belongs to.",min_length=42,max_length=42)
+    outcome:OutcomeEnum = Field(title="Outcome of the share, YES or NO.")
+    amount:int = Field(gt=0,title="Amount of shares in this outcome.")
 
 class Market(SQLModel,table=True):
     id:int = Field(primary_key=True,ge=0,title="ID of the market")
@@ -29,11 +36,11 @@ class Market(SQLModel,table=True):
     market_owner:str = AddressField
     isResolved:bool = Field(title="Whetever the market is resolved or not.",default=False)
     isOpen:bool = Field(title="Whetever the market is open or not. This can not be changed until the market is resolved.",default=False)
-
 class User(SQLModel, table=True):
     address:str = Field(primary_key=True,title="Wallet address of the user.",min_length=42,max_length=42)
     restriction:int = Field(title="Restriction digit of the user.",ge=-1,le=2)
     totalContracts:int = Field(default=0,title="Total amount of contracts the user holds, in every market the user is participating.",ge=0)
+    balance:int = Field(default=0,title="Balance of the user in cents.",ge=0)
 
 class Database:
     def __init__(self,dbPath):
@@ -67,7 +74,7 @@ class Database:
     
 
     def createDB(self):
-        #SQLModel.metadata.drop_all(self.engine) # REMOVE AT PROD
+        SQLModel.metadata.drop_all(self.engine) # REMOVE AT PROD
         SQLModel.metadata.create_all(self.engine)
 
     def open_market(self,market_id:int) -> Market:
@@ -107,7 +114,7 @@ class Database:
         self.session.refresh(o)
         return o
 
-    def get_order(self,order_id:int | None=None, market_id:int | None=None,price: int | None=None,side:str | None=None,outcome:str | None = None) -> Order | None | List[Order]:
+    def get_order(self,order_id:int | None=None, market_id:int | None=None,price: int | None=None,side:str | None=None,outcome:str | None = None,status:str | None = "open") -> Order | None | List[Order]:
         if order_id is not None:
             return self.session.get(Order,order_id)
         query = select(Order).where(
@@ -115,7 +122,7 @@ class Database:
                 (Order.price <= price) if price is not None else True,
                 (Order.side == side) if side is not None else True,
                 (Order.outcome == outcome) if outcome is not None else True,
-                (Order.status == "open") if Order.status is not None else True
+                (Order.status == status) if status is not None else True
             ).order_by(Order.ts,Order.price,Order.contracts)
 
         if price is not None and side == "buy":
@@ -124,7 +131,7 @@ class Database:
                 (Order.price >= price) if price is not None else True,
                 (Order.side == side) if side is not None else True,
                 (Order.outcome == outcome) if outcome is not None else True,
-                (Order.status == "open") if Order.status is not None else True
+                (Order.status == status) if status is not None else True
 
             ).order_by(Order.ts,Order.price,Order.contracts)
         elif price is not None and side == "sell":
@@ -133,7 +140,7 @@ class Database:
                 (Order.price <= price) if price is not None else True,
                 (Order.side == side) if side is not None else True,
                 (Order.outcome == outcome) if outcome is not None else True,
-                (Order.status == "open") if Order.status is not None else True
+                (Order.status == status) if status is not None else True
             ).order_by(Order.ts,Order.price,Order.contracts)
 
         orders = self.session.exec(query).all()
@@ -142,6 +149,104 @@ class Database:
             return orders[0]
 
         return orders if orders else None
+    
+    def close_order(self,order_id:int) -> Order | None:
+        o = self.get_order(order_id=order_id)
+        if o is None:
+            raise HTTPException(404,"Order does not exist.")
+        if o.status != "open":
+            raise HTTPException(423,"Order is already closed.")
+        o.status = "closed"
+        self.session.add(o)
+        self.session.commit()
+        self.session.refresh(o)
+        return o
+    
+    def transfer_share(self,market_id:int,owner_id:int,recp_id:int,outcome:int,amount:int) -> Share:
+        m = self.get_market(market_id)
+        if m is None:
+            raise HTTPException(404,"Market does not exist.")
+        if m.isResolved is True:
+            raise HTTPException(423,"You can not add shares to a resolved market.")
+        
+        original_share = self.session.get(Share,(market_id,owner_id,outcome))
+        if original_share is None:
+            raise HTTPException(404,"User does not own shares of this market outcome.")
+        
+        if original_share.amount < amount:
+            raise HTTPException(400,"User does not have enough shares to transfer.")
+        if original_share.amount == amount:
+            original_share.user_id = recp_id
+            self.session.add(original_share)
+            self.session.commit()
+            self.session.refresh(original_share)
+            return original_share
+        
+        original_share.amount -= amount
+        self.session.add(original_share)
+        self.session.commit()
+        self.session.refresh(original_share)
+
+        new_share = Share(market_id=market_id,user_id=recp_id,outcome=outcome,amount=amount)
+        self.session.add(new_share)
+        self.session.commit()
+        self.session.refresh(new_share)
+        return new_share
+
+        
+
+    def remove_share(self,market_id:int,user_id:int,outcome:int,amount:int) -> Share:
+        m = self.get_market(market_id)
+        if m is None:
+            raise HTTPException(404,"Market does not exist.")
+        if m.isResolved is True:
+            raise HTTPException(423,"You can not add shares to a resolved market.")
+        
+        share = self.session.get(Share,(market_id,user_id,outcome))
+        if share is None:
+            raise HTTPException(404,"User does not own shares of this market outcome.")
+        if (share.amount - amount) <= 0:
+            share.amount = 0
+            self.session.delete(share)
+            self.session.commit()
+            return share
+        
+        share.amount -= amount
+        self.session.add(share)
+        self.session.commit()
+        self.session.refresh(share)
+        return share
+
+    def add_share(self,market_id:int,user_id:int,outcome:int,amount:int) -> Share:
+        m = self.get_market(market_id)
+        if m is None:
+            raise HTTPException(404,"Market does not exist.")
+        if m.isResolved is True:
+            raise HTTPException(423,"You can not add shares to a resolved market.")
+        
+        share = self.session.get(Share,(market_id,user_id,outcome))
+
+        if share is None:
+            share = Share(market_id=market_id,user_id=user_id,outcome=outcome,amount=amount)
+            self.session.add(share)
+            self.session.commit()
+            self.session.refresh(share)
+            return share
+
+        if share.outcome != outcome:
+            share = Share(market_id=market_id,user_id=user_id,outcome=outcome,amount=amount)
+            self.session.add(share)
+            self.session.commit()
+            self.session.refresh(share)
+            return share
+        
+        share.amount += amount
+
+        self.session.add(share)
+        self.session.commit()
+        self.session.refresh(share)
+        return m
+
     def getUser(self,address) -> User | None:
         return self.session.get(User,address)
     def getAllUsers(self,limit):
