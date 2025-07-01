@@ -31,7 +31,7 @@ def test_add_order_valid():
         "price":53,
         "outcome":"yes"
     })
-
+    
     global VALID_ORDER_ID
     assert res.status_code == 200
     assert res.json()["status"] == "open" # For now this is always open. In reality, order can match with a maker.

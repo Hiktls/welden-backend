@@ -74,7 +74,7 @@ class Database:
     
 
     def createDB(self):
-        SQLModel.metadata.drop_all(self.engine) # REMOVE AT PROD
+        # SQLModel.metadata.drop_all(self.engine) # REMOVE AT PROD
         SQLModel.metadata.create_all(self.engine)
 
     def open_market(self,market_id:int) -> Market:
